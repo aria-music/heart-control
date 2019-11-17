@@ -1,5 +1,6 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from collections import deque
 
 from serial import Serial
 from serial.tools.list_ports import comports
@@ -45,12 +46,24 @@ def main():
 
 def listen_port(serial):
     prev_pnn = 0
+    bpm_queue = deque(maxlen=30)
+    rri_queue = deque(maxlen=30)
+
     for line in serial:
         log.debug(f"Received: {line}")
-        # do fucks to detect pnn change
-        pnn = 50
+        bpm, rri = line.split(',')
+        bpm_queue.append(bpm)
+        rri_queue.append(rri)
+
+        mean_bpm = sum(bpm_queue) / len(bpm_queue)
+        pnn = len([i for i in rri_queue if abs(i) > 50]) / len(rri_queue)
+
         if (pnn - prev_pnn) > 10:
+            log.info("displeasure detected! dispatching...")
             pool.submit(controller.skip)
+
+        log.info(f"mean BPM: {mean_bpm}, pNN50: {pnn}, samples: {len(rri)}")
+        prev_pnn = pnn
 
 if __name__ == "__main__":
     main()
