@@ -1,13 +1,14 @@
 from logging import getLogger
 from threading import Lock
 
-import chromedriver_binary
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
+from selenium.common import exceptions
 
 DEFAULT_URL = "https://www.youtube.com/watch?v=ESx_hy1n7HA"
 PAUSE_BTN = "#movie_player > div.ytp-chrome-bottom > div.ytp-chrome-controls > div.ytp-left-controls > button"
+AD_PLAYER_OVRELAY = 'ytp-ad-player-overlay-instream-info'
 log = getLogger(__name__)
 
 op = Options()
@@ -21,7 +22,7 @@ class YouTubeController():
     def __init__(self, url=DEFAULT_URL):
         self.url = url
 
-        self.driver = webdriver.Chrome(options=op)
+        self.driver = webdriver.Chrome('E:\Program Files\chromedriver\chromedriver.exe',options=op)
         self.lock = Lock()
         self.player = None
 
@@ -33,7 +34,9 @@ class YouTubeController():
         self.player = self.driver.find_element_by_xpath("/*")
         if not self.player:
             log.error("Failed to get player element.")
-            raise Exception()
+            raise Exception("Fuck!")
+
+        self.skip_ad()
 
         if self.driver.find_element_by_css_selector(PAUSE_BTN).get_attribute("aria-label").startswith("Play"):
             self.resume()
@@ -45,6 +48,19 @@ class YouTubeController():
     def skip(self):
         with self.lock:
             self.player.send_keys(Keys.SHIFT, 'n')
+
+        self.skip_ad()
+
+    def skip_ad(self):
+        try:
+            self.driver.find_element_by_class_name(AD_PLAYER_OVRELAY)
+            print('ad skip')
+            self.skip()
+        except exceptions.NoSuchElementException:
+            pass
+        except Exception as e:
+            log.error(exc_info=True)
+            raise Exception()
 
 # for module debugging
 def cli():
