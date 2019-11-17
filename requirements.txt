@@ -1,0 +1,3 @@
+selenium
+chromedriver-binary==78.0.3904.70.0
+pyserial
