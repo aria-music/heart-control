@@ -1,6 +1,7 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from collections import deque
+import datetime
 
 from serial import Serial
 from serial.tools.list_ports import comports
@@ -13,8 +14,9 @@ pool = ThreadPoolExecutor(4)
 controller = YouTubeController()
 
 DEFAULT_PORT = "COM4"
-PNN_THRESHOLD = 0.05
+PNN_THRESHOLD = 0.10
 
+# logs = []
 
 def main():
     serial = None
@@ -44,14 +46,22 @@ def main():
         if serial:
             serial.close()
 
+        controller.close()
+
+        # with open("log.csv", mode="w") as f:
+        #     f.writelines(logs)
+
 def listen_port(serial):
+    # global logs
+    pnns = deque([0]*5, maxlen=5)
     prev_pnn = 0
     prev_rri = 0
     bpm_queue = deque(maxlen=30)
     rri_queue = deque(maxlen=30)
 
+    log.info("Listening port...")
     for line in serial:
-        log.debug(f"Received: {line}")
+        # log.debug(f"Received: {line}")
         bpm, rri = line.decode().split(',')
         bpm_queue.append(float(bpm))
         rri_queue.append(float(rri) - prev_rri)
@@ -60,12 +70,13 @@ def listen_port(serial):
         mean_bpm = sum(bpm_queue) / len(bpm_queue)
         pnn = len([i for i in rri_queue if abs(i) > 50]) / len(rri_queue)
 
-        if (pnn - prev_pnn) < -PNN_THRESHOLD:
+        if (pnn - pnns[0]) < -PNN_THRESHOLD:
             log.info("displeasure detected! dispatching...")
             pool.submit(controller.skip)
 
-        log.info(f"mean BPM: {mean_bpm}, pNN50: {pnn}, samples: {len(rri_queue)}")
-        prev_pnn = pnn
+        log.info(f"mean BPM: {mean_bpm:2.1f}, pNN50: {pnn:1.3f}, pnn diff:{pnn-pnns[0]:1.3f}")
+        # logs.append(f"{datetime.datetime.now().isoformat()},{pnn}\n")
+        pnns.append(pnn)
 
 if __name__ == "__main__":
     main()

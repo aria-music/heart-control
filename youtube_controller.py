@@ -1,10 +1,11 @@
 from logging import getLogger
 from threading import Lock
+from time import sleep
 
 from selenium import webdriver
+from selenium.common import exceptions
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
-from selenium.common import exceptions
 
 DEFAULT_URL = "https://www.youtube.com/watch?v=ESx_hy1n7HA"
 PAUSE_BTN = "#movie_player > div.ytp-chrome-bottom > div.ytp-chrome-controls > div.ytp-left-controls > button"
@@ -36,7 +37,7 @@ class YouTubeController():
             log.error("Failed to get player element.")
             raise Exception("Fuck!")
 
-        self.skip_ad()
+        # self.skip_ad()
 
         if self.driver.find_element_by_css_selector(PAUSE_BTN).get_attribute("aria-label").startswith("Play"):
             self.resume()
@@ -46,10 +47,13 @@ class YouTubeController():
             self.player.send_keys('k')
 
     def skip(self):
+        if self.lock.locked():
+            return
         with self.lock:
             self.player.send_keys(Keys.SHIFT, 'n')
+            sleep(15)
 
-        self.skip_ad()
+        # self.skip_ad()
 
     def skip_ad(self):
         try:
@@ -61,6 +65,9 @@ class YouTubeController():
         except Exception as e:
             log.error(exc_info=True)
             raise Exception()
+
+    def close(self):
+        self.driver.close()
 
 # for module debugging
 def cli():
