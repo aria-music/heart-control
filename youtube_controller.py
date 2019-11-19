@@ -2,6 +2,7 @@ from logging import getLogger
 from threading import Lock
 from time import sleep
 
+import chromedriver_binary
 from selenium import webdriver
 from selenium.common import exceptions
 from selenium.webdriver.chrome.options import Options
@@ -23,7 +24,7 @@ class YouTubeController():
     def __init__(self, url=DEFAULT_URL):
         self.url = url
 
-        self.driver = webdriver.Chrome('E:\Program Files\chromedriver\chromedriver.exe',options=op)
+        self.driver = webdriver.Chrome(options=op)
         self.lock = Lock()
         self.player = None
 
