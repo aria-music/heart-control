@@ -7,6 +7,7 @@ from serial import Serial
 from serial.tools.list_ports import comports
 
 from youtube_controller import YouTubeController
+from activator import activators
 
 logging.basicConfig(level="DEBUG", format="[%(asctime)s][%(funcName)s] %(message)s")
 log = logging.getLogger()
@@ -14,11 +15,12 @@ pool = ThreadPoolExecutor(4)
 controller = YouTubeController()
 
 DEFAULT_PORT = "COM4"
-PNN_THRESHOLD = 0.10
+act = None
 
 # logs = []
 
 def main():
+    global act
     serial = None
     try:
         log.info("Starting...")
@@ -37,6 +39,15 @@ def main():
 
         port = input("*** Enter port (ex. COM4): ") or DEFAULT_PORT
 
+        log.info("Available activators:")
+        for i, func in activators.items():
+            print(f"{i}: {func.__name__} ({func.__doc__})")
+
+        act = activators.get(input("*** Enter activator number: "))
+        if not act:
+            log.info("No activator. Fuck.")
+            return
+
         serial = Serial(port=port, baudrate=115200)
 
         listen_port(serial)
@@ -53,7 +64,7 @@ def main():
 
 def listen_port(serial):
     # global logs
-    pnns = deque([0]*5, maxlen=5)
+    pnns = deque([0]*6, maxlen=6)
     prev_pnn = 0
     prev_rri = 0
     bpm_queue = deque(maxlen=30)
@@ -69,14 +80,14 @@ def listen_port(serial):
 
         mean_bpm = sum(bpm_queue) / len(bpm_queue)
         pnn = len([i for i in rri_queue if abs(i) > 50]) / len(rri_queue)
+        pnns.appendleft(pnn)
 
-        if (pnn - pnns[0]) < -PNN_THRESHOLD:
+        if act(pnns):
             log.info("displeasure detected! dispatching...")
             pool.submit(controller.skip)
 
         log.info(f"mean BPM: {mean_bpm:2.1f}, pNN50: {pnn:1.3f}, pnn diff:{pnn-pnns[0]:1.3f}")
         # logs.append(f"{datetime.datetime.now().isoformat()},{pnn}\n")
-        pnns.append(pnn)
 
 if __name__ == "__main__":
     main()
